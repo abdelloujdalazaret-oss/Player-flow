@@ -18,6 +18,10 @@ jobs:
       - name: Extract project zip
         run: |
           unzip -o player_flow_v2.zip -d .
+          # إذا كانت الملفات استُخرجت داخل مجلد فرعي بنفس الاسم، نقوم بنقلها للمسار الرئيسي
+          if [ -d "player_flow_v2" ]; then
+            cp -r player_flow_v2/* .
+          fi
 
       - name: Set up Java JDK
         uses: actions/setup-java@v3
