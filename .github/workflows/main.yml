@@ -1,0 +1,70 @@
+name: Build Flutter APK from Zip
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.35.x'
+          channel: 'stable'
+          cache: true
+
+      - name: Configure Flutter
+        run: flutter config --no-analytics
+
+      - name: Extract project.zip
+        run: |
+          rm -rf extracted_project
+          unzip -o project.zip -d extracted_project
+          shopt -s dotglob
+          mv extracted_project/* ./
+          rm -rf extracted_project project.zip
+
+      - name: Fix plugins without compileSdk or namespace
+        run: |
+          mkdir -p ~/.gradle/init.d
+          cat > ~/.gradle/init.d/fix-compilesdk.gradle <<'EOF'
+          allprojects {
+              afterEvaluate { project ->
+                  if (project.hasProperty('android')) {
+                      project.android {
+                          if (namespace == null) {
+                              namespace project.group.toString()
+                          }
+                          if (compileSdk == null) {
+                              compileSdk 36
+                          }
+                      }
+                  }
+              }
+          }
+          EOF
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build APK
+        run: flutter build apk --release
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: player-flow-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
